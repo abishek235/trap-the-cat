@@ -33,6 +33,25 @@ body {
     "Segoe UI Emoji";
 }
 
+.version {
+  position: fixed;
+  left: 50%;
+  bottom: max(10px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  color: rgba(255, 255, 255, 0.60);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  backdrop-filter: blur(10px);
+  pointer-events: none;
+  user-select: none;
+  z-index: 20;
+}
+
 .app {
   min-height: 100%;
   min-height: 100dvh;

@@ -1,5 +1,7 @@
 // Dependency-free browser game: Trap the Cat on a hex grid.
 
+const VERSION = "0.1.0";
+
 const canvas = document.getElementById("board");
 const ctx = canvas.getContext("2d", { alpha: false });
 const resetBtn = document.getElementById("resetBtn");
@@ -8,6 +10,7 @@ const toastEl = document.getElementById("toast");
 const boardInfoEl = document.getElementById("boardInfo");
 const blockedInfoEl = document.getElementById("blockedInfo");
 const turnInfoEl = document.getElementById("turnInfo");
+const versionTextEl = document.getElementById("versionText");
 
 /** @typedef {{q:number, r:number}} Hex */
 
@@ -645,4 +648,5 @@ canvas.addEventListener("touchstart", onPointer, { passive: false });
 
 window.addEventListener("resize", () => render());
 
+if (versionTextEl) versionTextEl.textContent = `v${VERSION}`;
 resetGame();
