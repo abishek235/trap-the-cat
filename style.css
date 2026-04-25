@@ -126,7 +126,7 @@ body {
   width: 100%;
   height: min(74dvh, 680px);
   display: block;
-  touch-action: manipulation;
+  touch-action: none;
 }
 
 .toast {

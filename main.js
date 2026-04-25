@@ -1,6 +1,6 @@
 // Dependency-free browser game: Trap the Cat on a hex grid.
 
-const VERSION = "0.1.0";
+const VERSION = "0.1.1";
 
 const canvas = document.getElementById("board");
 const ctx = canvas.getContext("2d", { alpha: false });
@@ -28,6 +28,7 @@ const state = {
   blocked: new Set(), // key "q,r"
   cat: { q: 0, r: 0 },
   catAnim: null, // {from:{x,y}, to:{x,y}, startMs:number, durationMs:number}
+  zoom: 1, // user-controlled zoom (pinch)
   turns: 0,
   over: false,
   overReason: "",
@@ -37,10 +38,19 @@ const state = {
     originX: 0,
     originY: 0,
   },
+  gesture: {
+    pinching: false,
+    startDist: 0,
+    startZoom: 1,
+  },
 };
 
 function clamp01(t) {
   return Math.max(0, Math.min(1, t));
+}
+
+function clamp(v, lo, hi) {
+  return Math.max(lo, Math.min(hi, v));
 }
 
 function easeOutCubic(t) {
@@ -137,7 +147,8 @@ function resizeCanvasToDisplaySize() {
   const cols = 2 * state.radius + 1;
   const maxSizeW = availW / (Math.sqrt(3) * cols);
   const maxSizeH = availH / (1.5 * cols);
-  const size = Math.max(10 * dpr, Math.floor(Math.min(maxSizeW, maxSizeH)));
+  const baseSize = Math.max(10 * dpr, Math.floor(Math.min(maxSizeW, maxSizeH)));
+  const size = Math.floor(baseSize * state.zoom);
 
   state.layout.size = size;
   state.layout.originX = Math.floor(canvas.width / 2);
@@ -625,7 +636,20 @@ function getEventCanvasPoint(evt) {
   return { x, y };
 }
 
+function touchDistance(evt) {
+  if (!evt.touches || evt.touches.length < 2) return 0;
+  const rect = canvas.getBoundingClientRect();
+  const t0 = evt.touches[0];
+  const t1 = evt.touches[1];
+  const x0 = (t0.clientX - rect.left) * state.pixelRatio;
+  const y0 = (t0.clientY - rect.top) * state.pixelRatio;
+  const x1 = (t1.clientX - rect.left) * state.pixelRatio;
+  const y1 = (t1.clientY - rect.top) * state.pixelRatio;
+  return Math.hypot(x1 - x0, y1 - y0);
+}
+
 function onPointer(evt) {
+  if (state.gesture.pinching) return;
   evt.preventDefault?.();
   const p = getEventCanvasPoint(evt);
   const h = pixelToHex(p.x, p.y);
@@ -645,6 +669,41 @@ resetBtn.addEventListener("click", () => resetGame());
 
 canvas.addEventListener("click", onPointer, { passive: false });
 canvas.addEventListener("touchstart", onPointer, { passive: false });
+
+canvas.addEventListener(
+  "touchstart",
+  (evt) => {
+    if (!evt.touches || evt.touches.length < 2) return;
+    evt.preventDefault();
+    state.gesture.pinching = true;
+    state.gesture.startDist = touchDistance(evt);
+    state.gesture.startZoom = state.zoom;
+  },
+  { passive: false },
+);
+
+canvas.addEventListener(
+  "touchmove",
+  (evt) => {
+    if (!state.gesture.pinching) return;
+    if (!evt.touches || evt.touches.length < 2) return;
+    evt.preventDefault();
+    const d = touchDistance(evt);
+    if (state.gesture.startDist <= 0) return;
+    const ratio = d / state.gesture.startDist;
+    state.zoom = clamp(state.gesture.startZoom * ratio, 0.75, 2.25);
+    render();
+  },
+  { passive: false },
+);
+
+function endPinch() {
+  state.gesture.pinching = false;
+  state.gesture.startDist = 0;
+}
+
+canvas.addEventListener("touchend", () => endPinch(), { passive: true });
+canvas.addEventListener("touchcancel", () => endPinch(), { passive: true });
 
 window.addEventListener("resize", () => render());
 
