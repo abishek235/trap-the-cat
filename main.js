@@ -311,6 +311,17 @@ function bfsDistancesFrom(start) {
   return dist;
 }
 
+function canCatReachAnyEdge() {
+  if (isEdge(state.cat)) return true;
+  const dist = bfsDistancesFrom(state.cat);
+  for (const h of allHexes()) {
+    if (!isEdge(h)) continue;
+    if (isBlocked(h)) continue;
+    if (dist.has(keyOf(h))) return true;
+  }
+  return false;
+}
+
 function computeCatStep() {
   // If already on edge: escaped.
   if (isEdge(state.cat)) return { type: "escaped" };
@@ -387,12 +398,19 @@ function endGame(reason) {
 }
 
 function catTurn() {
+  // New win rule: if cat cannot reach the edge anymore, it is "trapped in".
+  if (!canCatReachAnyEdge()) {
+    endGame("Cat is trapped in. You win!");
+    return;
+  }
+
   const step = computeCatStep();
   if (step.type === "escaped") {
     endGame("Cat escaped. You lose.");
     return;
   }
   if (step.type === "trapped") {
+    // Still a win (stronger than being enclosed): no legal moves.
     endGame("Cat is trapped. You win!");
     return;
   }
@@ -402,6 +420,11 @@ function catTurn() {
       endGame("Cat escaped. You lose.");
       return;
     }
+  }
+
+  // After moving, immediately check the "trapped in" condition again.
+  if (!state.over && !canCatReachAnyEdge()) {
+    endGame("Cat is trapped in. You win!");
   }
 }
 
