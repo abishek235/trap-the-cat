@@ -1,6 +1,6 @@
 // Dependency-free browser game: Trap the Cat on a hex grid.
 
-const VERSION = "0.1.1";
+const VERSION = "0.1.2";
 
 const canvas = document.getElementById("board");
 const ctx = canvas.getContext("2d", { alpha: false });
@@ -42,6 +42,21 @@ const state = {
     pinching: false,
     startDist: 0,
     startZoom: 1,
+    startCenter: { x: 0, y: 0 },
+    panning: false,
+  },
+  camera: {
+    offsetX: 0,
+    offsetY: 0,
+  },
+  tap: {
+    active: false,
+    moved: false,
+    startX: 0,
+    startY: 0,
+    lastX: 0,
+    lastY: 0,
+    startMs: 0,
   },
 };
 
@@ -160,16 +175,16 @@ function hexToPixel(h) {
   const x = size * Math.sqrt(3) * (h.q + h.r / 2);
   const y = size * 1.5 * h.r;
   return {
-    x: state.layout.originX + x,
-    y: state.layout.originY + y,
+    x: state.layout.originX + state.camera.offsetX + x,
+    y: state.layout.originY + state.camera.offsetY + y,
   };
 }
 
 function pixelToHex(px, py) {
   // Invert pointy-top axial conversion, then round to nearest hex.
   const size = state.layout.size;
-  const x = (px - state.layout.originX) / size;
-  const y = (py - state.layout.originY) / size;
+  const x = (px - (state.layout.originX + state.camera.offsetX)) / size;
+  const y = (py - (state.layout.originY + state.camera.offsetY)) / size;
 
   const q = (Math.sqrt(3) / 3) * x + (-1 / 3) * y;
   const r = (2 / 3) * y;
@@ -648,6 +663,18 @@ function touchDistance(evt) {
   return Math.hypot(x1 - x0, y1 - y0);
 }
 
+function touchCenter(evt) {
+  if (!evt.touches || evt.touches.length < 2) return { x: 0, y: 0 };
+  const rect = canvas.getBoundingClientRect();
+  const t0 = evt.touches[0];
+  const t1 = evt.touches[1];
+  const x0 = (t0.clientX - rect.left) * state.pixelRatio;
+  const y0 = (t0.clientY - rect.top) * state.pixelRatio;
+  const x1 = (t1.clientX - rect.left) * state.pixelRatio;
+  const y1 = (t1.clientY - rect.top) * state.pixelRatio;
+  return { x: (x0 + x1) / 2, y: (y0 + y1) / 2 };
+}
+
 function onPointer(evt) {
   if (state.gesture.pinching) return;
   evt.preventDefault?.();
@@ -668,16 +695,38 @@ function onPointer(evt) {
 resetBtn.addEventListener("click", () => resetGame());
 
 canvas.addEventListener("click", onPointer, { passive: false });
-canvas.addEventListener("touchstart", onPointer, { passive: false });
+
+function endPinch() {
+  state.gesture.pinching = false;
+  state.gesture.startDist = 0;
+  state.gesture.panning = false;
+}
 
 canvas.addEventListener(
   "touchstart",
   (evt) => {
-    if (!evt.touches || evt.touches.length < 2) return;
-    evt.preventDefault();
-    state.gesture.pinching = true;
-    state.gesture.startDist = touchDistance(evt);
-    state.gesture.startZoom = state.zoom;
+    // Two-finger gesture: pinch zoom + pan
+    if (evt.touches && evt.touches.length >= 2) {
+      evt.preventDefault();
+      state.tap.active = false;
+      state.gesture.pinching = true;
+      state.gesture.panning = true;
+      state.gesture.startDist = touchDistance(evt);
+      state.gesture.startZoom = state.zoom;
+      state.gesture.startCenter = touchCenter(evt);
+      return;
+    }
+
+    // Single-finger: start a tap candidate (we'll commit on touchend)
+    if (!evt.touches || evt.touches.length !== 1) return;
+    const p = getEventCanvasPoint(evt);
+    state.tap.active = true;
+    state.tap.moved = false;
+    state.tap.startX = p.x;
+    state.tap.startY = p.y;
+    state.tap.lastX = p.x;
+    state.tap.lastY = p.y;
+    state.tap.startMs = performance.now();
   },
   { passive: false },
 );
@@ -685,25 +734,74 @@ canvas.addEventListener(
 canvas.addEventListener(
   "touchmove",
   (evt) => {
-    if (!state.gesture.pinching) return;
-    if (!evt.touches || evt.touches.length < 2) return;
-    evt.preventDefault();
-    const d = touchDistance(evt);
-    if (state.gesture.startDist <= 0) return;
-    const ratio = d / state.gesture.startDist;
-    state.zoom = clamp(state.gesture.startZoom * ratio, 0.75, 2.25);
-    render();
+    if (state.gesture.pinching && evt.touches && evt.touches.length >= 2) {
+      evt.preventDefault();
+      const d = touchDistance(evt);
+      const c = touchCenter(evt);
+
+      if (state.gesture.startDist > 0) {
+        const ratio = d / state.gesture.startDist;
+        state.zoom = clamp(state.gesture.startZoom * ratio, 0.75, 2.25);
+      }
+
+      // two-finger pan: move camera by centroid delta
+      const dx = c.x - state.gesture.startCenter.x;
+      const dy = c.y - state.gesture.startCenter.y;
+      state.camera.offsetX += dx;
+      state.camera.offsetY += dy;
+      state.gesture.startCenter = c;
+
+      render();
+      return;
+    }
+
+    if (state.tap.active && evt.touches && evt.touches.length === 1) {
+      const p = getEventCanvasPoint(evt);
+      state.tap.lastX = p.x;
+      state.tap.lastY = p.y;
+      const moved = Math.hypot(p.x - state.tap.startX, p.y - state.tap.startY);
+      if (moved > 10 * state.pixelRatio) state.tap.moved = true;
+    }
   },
   { passive: false },
 );
 
-function endPinch() {
-  state.gesture.pinching = false;
-  state.gesture.startDist = 0;
-}
+canvas.addEventListener(
+  "touchend",
+  (evt) => {
+    // If multi-touch gesture ended
+    if (state.gesture.pinching) {
+      if (!evt.touches || evt.touches.length < 2) endPinch();
+      return;
+    }
 
-canvas.addEventListener("touchend", () => endPinch(), { passive: true });
-canvas.addEventListener("touchcancel", () => endPinch(), { passive: true });
+    // Commit tap on finger up if it was a quick, small-move touch.
+    if (!state.tap.active) return;
+    const dt = performance.now() - state.tap.startMs;
+    const moved = Math.hypot(state.tap.lastX - state.tap.startX, state.tap.lastY - state.tap.startY);
+    const okTap = !state.tap.moved && moved <= 10 * state.pixelRatio && dt <= 450;
+    state.tap.active = false;
+    if (!okTap) return;
+    if (state.over || state.catAnim) return;
+
+    const h = pixelToHex(state.tap.lastX, state.tap.lastY);
+    if (!isInside(h)) return;
+    const hp = hexToPixel(h);
+    const dist = Math.hypot(state.tap.lastX - hp.x, state.tap.lastY - hp.y);
+    if (dist > state.layout.size * 0.98) return;
+    playerBlock(h);
+  },
+  { passive: false },
+);
+
+canvas.addEventListener(
+  "touchcancel",
+  () => {
+    state.tap.active = false;
+    endPinch();
+  },
+  { passive: true },
+);
 
 window.addEventListener("resize", () => render());
 
