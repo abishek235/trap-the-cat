@@ -4,7 +4,7 @@ Turn-based hex-grid game: you **block 1 tile**, then the **cat moves 1 step** tr
 
 ## Play online
 
-- **Game link (GitHub Pages)**: `https://abishek235.github.io/trap-the-cat/`
+- **Game link (GitHub Pages)**: [abishek235/trap-the-cat](https://abishek235.github.io/trap-the-cat/).
 
 If the link shows 404, enable GitHub Pages:
 - Repo → **Settings** → **Pages**
