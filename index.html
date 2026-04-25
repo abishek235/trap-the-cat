@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Trap the Cat (Hex)</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="topbar">
+        <div class="title">
+          <div class="title__name">Trap the Cat</div>
+          <div class="title__sub">Tap a tile to block it. Cat moves after you.</div>
+        </div>
+        <div class="controls">
+          <button id="resetBtn" class="btn" type="button">Reset</button>
+        </div>
+      </header>
+
+      <main class="main">
+        <div class="boardWrap">
+          <canvas id="board" class="board" aria-label="Hex board"></canvas>
+          <div id="toast" class="toast" aria-live="polite"></div>
+        </div>
+
+        <section class="panel">
+          <div class="panel__row">
+            <div class="stat">
+              <div class="stat__label">Board</div>
+              <div class="stat__value"><span id="boardInfo">—</span></div>
+            </div>
+            <div class="stat">
+              <div class="stat__label">Blocked</div>
+              <div class="stat__value"><span id="blockedInfo">—</span></div>
+            </div>
+            <div class="stat">
+              <div class="stat__label">Turns</div>
+              <div class="stat__value"><span id="turnInfo">—</span></div>
+            </div>
+          </div>
+
+          <div class="panel__row panel__row--help">
+            <div class="help">
+              <div class="help__title">Rules</div>
+              <ul class="help__list">
+                <li>You block exactly <strong>one</strong> tile per turn.</li>
+                <li>The cat moves 1 step toward the nearest edge.</li>
+                <li>You win if the cat has <strong>no legal moves</strong>.</li>
+                <li>You lose if the cat reaches the <strong>edge</strong>.</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>
