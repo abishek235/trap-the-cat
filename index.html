@@ -17,6 +17,19 @@
           <div class="title__sub">Tap a tile to block it. Cat moves after you.</div>
         </div>
         <div class="controls">
+          <div class="settings">
+            <button id="settingsBtn" class="settings__btn" type="button" aria-label="Settings">⚙</button>
+            <div id="settingsDropdown" class="settings__dropdown">
+              <label class="settings__option">
+                <input type="radio" name="theme" value="dark" checked>
+                <span class="settings__label">Dark</span>
+              </label>
+              <label class="settings__option">
+                <input type="radio" name="theme" value="bright">
+                <span class="settings__label">Bright</span>
+              </label>
+            </div>
+          </div>
           <button id="resetBtn" class="btn" type="button">Reset</button>
         </div>
       </header>

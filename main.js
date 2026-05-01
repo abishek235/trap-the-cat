@@ -1,16 +1,100 @@
 // Dependency-free browser game: Trap the Cat on a hex grid.
 
-const VERSION = "0.1.2";
+const VERSION = "0.1.3";
 
 const canvas = document.getElementById("board");
 const ctx = canvas.getContext("2d", { alpha: false });
 const resetBtn = document.getElementById("resetBtn");
+const settingsBtn = document.getElementById("settingsBtn");
+const settingsDropdown = document.getElementById("settingsDropdown");
 const toastEl = document.getElementById("toast");
 
 const boardInfoEl = document.getElementById("boardInfo");
 const blockedInfoEl = document.getElementById("blockedInfo");
 const turnInfoEl = document.getElementById("turnInfo");
 const versionTextEl = document.getElementById("versionText");
+
+// Theme handling
+const themeRadios = document.querySelectorAll('input[name="theme"]');
+
+// Canvas colors based on theme
+const canvasColors = {
+  dark: {
+    bg: "#070b16",
+    gridGlow: "rgba(124, 92, 255, 0.08)",
+    tileBase: "rgba(255,255,255,0.07)",
+    tileEdge: "rgba(255,255,255,0.10)",
+    tileBlocked: "rgba(0,0,0,0.72)",
+    tileBlockedStroke: "rgba(255,255,255,0.07)",
+    catBody: "#f2f3ff",
+    catShadow: "rgba(0,0,0,0.55)",
+    catGlow: "rgba(124, 92, 255, 0.55)",
+    catEarInner: "rgba(255, 77, 109, 0.35)",
+    catFace: "#0b1020",
+    catNose: "rgba(255, 77, 109, 0.80)",
+  },
+  bright: {
+    bg: "#2a2510",
+    gridGlow: "rgba(232, 197, 71, 0.12)",
+    tileBase: "rgba(255, 245, 200, 0.08)",
+    tileEdge: "rgba(255, 245, 200, 0.12)",
+    tileBlocked: "rgba(60, 50, 20, 0.75)",
+    tileBlockedStroke: "rgba(255, 230, 120, 0.1)",
+    catBody: "#fffef0",
+    catShadow: "rgba(0,0,0,0.3)",
+    catGlow: "rgba(232, 197, 71, 0.5)",
+    catEarInner: "rgba(255, 180, 80, 0.4)",
+    catFace: "#2a2510",
+    catNose: "rgba(255, 150, 50, 0.85)",
+  },
+};
+
+function getCanvasColors() {
+  const isBright = document.documentElement.getAttribute("data-theme") === "bright";
+  return isBright ? canvasColors.bright : canvasColors.dark;
+}
+
+function setTheme(theme) {
+  if (theme === "bright") {
+    document.documentElement.setAttribute("data-theme", "bright");
+  } else {
+    document.documentElement.removeAttribute("data-theme");
+  }
+  localStorage.setItem("theme", theme);
+  // Re-render canvas with new colors
+  requestAnimationFrame(() => render());
+}
+
+// Load saved theme
+const savedTheme = localStorage.getItem("theme");
+if (savedTheme) {
+  setTheme(savedTheme);
+  themeRadios.forEach((radio) => {
+    radio.checked = radio.value === savedTheme;
+  });
+}
+
+// Settings dropdown toggle
+settingsBtn.addEventListener("click", (e) => {
+  e.stopPropagation();
+  settingsDropdown.classList.toggle("show");
+});
+
+// Close dropdown when clicking outside
+document.addEventListener("click", () => {
+  settingsDropdown.classList.remove("show");
+});
+
+settingsDropdown.addEventListener("click", (e) => {
+  e.stopPropagation();
+});
+
+// Theme radio change handler
+themeRadios.forEach((radio) => {
+  radio.addEventListener("change", (e) => {
+    setTheme(e.target.value);
+  });
+});
 
 /** @typedef {{q:number, r:number}} Hex */
 
@@ -246,10 +330,12 @@ function drawCat(x, y, size, jumpT) {
   const cy = y + jumpY;
   const s = size;
 
+  const colors = getCanvasColors();
+
   // shadow on tile
   ctx.save();
   ctx.globalAlpha = 0.35;
-  ctx.fillStyle = "rgba(0,0,0,0.55)";
+  ctx.fillStyle = colors.catShadow;
   ctx.beginPath();
   ctx.ellipse(cx, y + s * 0.35, s * 0.45 * squash, s * 0.18 * squash, 0, 0, Math.PI * 2);
   ctx.fill();
@@ -265,9 +351,9 @@ function drawCat(x, y, size, jumpT) {
 
   // glow
   ctx.save();
-  ctx.shadowColor = "rgba(124, 92, 255, 0.55)";
+  ctx.shadowColor = colors.catGlow;
   ctx.shadowBlur = Math.floor(14 * state.pixelRatio);
-  ctx.fillStyle = "#f2f3ff";
+  ctx.fillStyle = colors.catBody;
 
   // body
   ctx.beginPath();
@@ -281,7 +367,7 @@ function drawCat(x, y, size, jumpT) {
   ctx.restore();
 
   // ears
-  ctx.fillStyle = "#f2f3ff";
+  ctx.fillStyle = colors.catBody;
   ctx.beginPath();
   ctx.moveTo(-headR * 0.72, -s * 0.18);
   ctx.lineTo(-headR * 0.25, -s * 0.48);
@@ -298,7 +384,7 @@ function drawCat(x, y, size, jumpT) {
 
   // inner ears
   ctx.globalAlpha = 0.9;
-  ctx.fillStyle = "rgba(255, 77, 109, 0.35)";
+  ctx.fillStyle = colors.catEarInner;
   ctx.beginPath();
   ctx.moveTo(-headR * 0.52, -s * 0.22);
   ctx.lineTo(-headR * 0.26, -s * 0.40);
@@ -316,7 +402,7 @@ function drawCat(x, y, size, jumpT) {
 
   // tail
   ctx.save();
-  ctx.strokeStyle = "#f2f3ff";
+  ctx.strokeStyle = colors.catBody;
   ctx.lineWidth = Math.max(2, Math.floor(s * 0.08));
   ctx.lineCap = "round";
   ctx.beginPath();
@@ -326,7 +412,7 @@ function drawCat(x, y, size, jumpT) {
   ctx.restore();
 
   // face
-  ctx.fillStyle = "#0b1020";
+  ctx.fillStyle = colors.catFace;
   ctx.globalAlpha = 0.90;
   const eyeOffsetX = s * 0.12;
   const eyeOffsetY = -s * 0.10;
@@ -338,7 +424,7 @@ function drawCat(x, y, size, jumpT) {
 
   // nose
   ctx.globalAlpha = 0.70;
-  ctx.fillStyle = "rgba(255, 77, 109, 0.80)";
+  ctx.fillStyle = colors.catNose;
   ctx.beginPath();
   ctx.moveTo(0, -s * 0.02);
   ctx.lineTo(-s * 0.03, s * 0.03);
@@ -370,14 +456,16 @@ function render() {
   resizeCanvasToDisplaySize();
   clearToast();
 
+  const colors = getCanvasColors();
+
   // background
-  ctx.fillStyle = "#070b16";
+  ctx.fillStyle = colors.bg;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   // subtle grid glow
   ctx.save();
   ctx.globalAlpha = 0.8;
-  ctx.fillStyle = "rgba(124, 92, 255, 0.08)";
+  ctx.fillStyle = colors.gridGlow;
   ctx.beginPath();
   ctx.arc(state.layout.originX, state.layout.originY, state.layout.size * (state.radius * 4.3), 0, Math.PI * 2);
   ctx.fill();
@@ -390,9 +478,9 @@ function render() {
     const p = hexToPixel(h);
     const blocked = isBlocked(h);
     const onEdge = isEdge(h);
-    const base = onEdge ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.07)";
-    const fill = blocked ? "rgba(0,0,0,0.72)" : base;
-    const stroke = blocked ? "rgba(255,255,255,0.07)" : "rgba(255,255,255,0.10)";
+    const base = onEdge ? colors.tileEdge : colors.tileBase;
+    const fill = blocked ? colors.tileBlocked : base;
+    const stroke = blocked ? colors.tileBlockedStroke : colors.tileEdge;
     drawHex(p.x, p.y, size - 1, fill, stroke, Math.max(1, Math.floor(1 * state.pixelRatio)));
   }
 
