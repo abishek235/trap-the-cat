@@ -15,17 +15,17 @@
 
 [data-theme="bright"] {
   color-scheme: light;
-  --bg: #1a1810;
-  --panel: rgba(255, 230, 120, 0.12);
-  --panel2: rgba(255, 230, 120, 0.18);
-  --text: rgba(255, 245, 200, 0.95);
-  --muted: rgba(255, 235, 170, 0.7);
-  --accent: #e8c547;
-  --danger: #ff6b4a;
-  --win: #3dd96a;
-  --tile: rgba(255, 230, 120, 0.1);
-  --tileStroke: rgba(255, 230, 120, 0.15);
-  --blocked: rgba(60, 50, 20, 0.8);
+  --bg: #fdfbf7;
+  --panel: rgba(0, 0, 0, 0.04);
+  --panel2: rgba(0, 0, 0, 0.07);
+  --text: #3e2723;
+  --muted: rgba(62, 39, 35, 0.6);
+  --accent: #f4a261;
+  --danger: #e63946;
+  --win: #2a9d8f;
+  --tile: rgba(0, 0, 0, 0.05);
+  --tileStroke: rgba(0, 0, 0, 0.1);
+  --blocked: rgba(139, 90, 43, 0.85);
 }
 
 * {
@@ -39,20 +39,38 @@ body {
 
 body {
   margin: 0;
-  background: radial-gradient(1200px 700px at 20% 10%, rgba(124, 92, 255, 0.22), transparent 55%),
-    radial-gradient(900px 700px at 80% 30%, rgba(41, 209, 125, 0.12), transparent 55%),
-    radial-gradient(800px 600px at 60% 90%, rgba(255, 77, 109, 0.08), transparent 55%),
-    var(--bg);
+  background: var(--bg);
   color: var(--text);
   font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji",
     "Segoe UI Emoji";
 }
 
 [data-theme="bright"] body {
-  background: radial-gradient(1200px 700px at 20% 10%, rgba(232, 197, 71, 0.25), transparent 55%),
-    radial-gradient(900px 700px at 80% 30%, rgba(61, 217, 106, 0.15), transparent 55%),
-    radial-gradient(800px 600px at 60% 90%, rgba(255, 107, 74, 0.1), transparent 55%),
-    var(--bg);
+  background: var(--bg);
+}
+
+/* Bright theme overrides for borders and buttons visibility */
+[data-theme="bright"] .btn,
+[data-theme="bright"] .settings__btn {
+  border-color: rgba(0, 0, 0, 0.15);
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.02), rgba(0, 0, 0, 0.06));
+}
+[data-theme="bright"] .settings__btn:hover {
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.05), rgba(0, 0, 0, 0.1));
+}
+[data-theme="bright"] .panel,
+[data-theme="bright"] .stat,
+[data-theme="bright"] .boardWrap,
+[data-theme="bright"] .settings__dropdown {
+  border-color: rgba(0, 0, 0, 0.1);
+}
+[data-theme="bright"] .boardWrap {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.1));
+}
+[data-theme="bright"] .version {
+  background: rgba(255, 255, 255, 0.6);
+  color: rgba(0, 0, 0, 0.7);
+  border-color: rgba(0, 0, 0, 0.1);
 }
 
 .version {
@@ -221,18 +239,22 @@ body {
 
 .toast {
   position: absolute;
-  left: 12px;
-  right: 12px;
-  bottom: 12px;
-  padding: 12px 14px;
-  border-radius: 14px;
-  background: rgba(0, 0, 0, 0.42);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 16px 24px;
+  border-radius: 16px;
+  background: rgba(0, 0, 0, 0.75);
   border: 1px solid rgba(255, 255, 255, 0.10);
   color: var(--text);
   backdrop-filter: blur(10px);
   display: none;
+  text-align: center;
+  font-size: 16px;
   font-weight: 650;
   letter-spacing: 0.1px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+  z-index: 200;
 }
 
 .toast.toast--show {
@@ -245,6 +267,12 @@ body {
 
 .toast.toast--win {
   border-color: rgba(41, 209, 125, 0.35);
+}
+
+[data-theme="bright"] .toast {
+  background: rgba(255, 255, 255, 0.85);
+  border-color: rgba(0, 0, 0, 0.1);
+  color: var(--text);
 }
 
 .panel {

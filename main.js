@@ -1,6 +1,6 @@
 // Dependency-free browser game: Trap the Cat on a hex grid.
 
-const VERSION = "0.1.3";
+const VERSION = "0.1.4";
 
 const canvas = document.getElementById("board");
 const ctx = canvas.getContext("2d", { alpha: false });
@@ -34,18 +34,18 @@ const canvasColors = {
     catNose: "rgba(255, 77, 109, 0.80)",
   },
   bright: {
-    bg: "#2a2510",
-    gridGlow: "rgba(232, 197, 71, 0.12)",
-    tileBase: "rgba(255, 245, 200, 0.08)",
-    tileEdge: "rgba(255, 245, 200, 0.12)",
-    tileBlocked: "rgba(60, 50, 20, 0.75)",
-    tileBlockedStroke: "rgba(255, 230, 120, 0.1)",
-    catBody: "#fffef0",
-    catShadow: "rgba(0,0,0,0.3)",
-    catGlow: "rgba(232, 197, 71, 0.5)",
-    catEarInner: "rgba(255, 180, 80, 0.4)",
-    catFace: "#2a2510",
-    catNose: "rgba(255, 150, 50, 0.85)",
+    bg: "#fdfbf7",
+    gridGlow: "rgba(255, 220, 100, 0.4)",
+    tileBase: "rgba(0, 0, 0, 0.05)",
+    tileEdge: "rgba(0, 0, 0, 0.1)",
+    tileBlocked: "rgba(139, 90, 43, 0.85)",
+    tileBlockedStroke: "rgba(100, 60, 25, 0.9)",
+    catBody: "#8b5a2b", /* Brown cat */
+    catShadow: "rgba(0,0,0,0.2)",
+    catGlow: "rgba(139, 90, 43, 0.5)",
+    catEarInner: "rgba(244, 194, 194, 0.8)",
+    catFace: "#3e2723",
+    catNose: "#d84315",
   },
 };
 
@@ -60,13 +60,22 @@ function setTheme(theme) {
   } else {
     document.documentElement.removeAttribute("data-theme");
   }
-  localStorage.setItem("theme", theme);
+  try {
+    localStorage.setItem("theme", theme);
+  } catch (err) {
+    console.warn("Could not save theme to localStorage", err);
+  }
   // Re-render canvas with new colors
   requestAnimationFrame(() => render());
 }
 
 // Load saved theme
-const savedTheme = localStorage.getItem("theme");
+let savedTheme = null;
+try {
+  savedTheme = localStorage.getItem("theme");
+} catch (err) {
+  console.warn("Could not read theme from localStorage", err);
+}
 if (savedTheme) {
   setTheme(savedTheme);
   themeRadios.forEach((radio) => {
@@ -77,12 +86,14 @@ if (savedTheme) {
 // Settings dropdown toggle
 settingsBtn.addEventListener("click", (e) => {
   e.stopPropagation();
-  settingsDropdown.classList.toggle("show");
+  const isShowing = settingsDropdown.classList.toggle("show");
+  settingsBtn.setAttribute("aria-expanded", isShowing);
 });
 
 // Close dropdown when clicking outside
 document.addEventListener("click", () => {
   settingsDropdown.classList.remove("show");
+  settingsBtn.setAttribute("aria-expanded", "false");
 });
 
 settingsDropdown.addEventListener("click", (e) => {
@@ -93,6 +104,8 @@ settingsDropdown.addEventListener("click", (e) => {
 themeRadios.forEach((radio) => {
   radio.addEventListener("change", (e) => {
     setTheme(e.target.value);
+    settingsDropdown.classList.remove("show");
+    settingsBtn.setAttribute("aria-expanded", "false");
   });
 });
 
@@ -558,103 +571,71 @@ function legalCatMoves() {
   return neighbors(state.cat).filter((n) => !isBlocked(n));
 }
 
-function bfsDistancesFrom(start) {
-  /** @type {Map<string, number>} */
-  const dist = new Map();
-  const q = [start];
-  dist.set(keyOf(start), 0);
-  for (let qi = 0; qi < q.length; qi++) {
-    const cur = q[qi];
-    const curD = dist.get(keyOf(cur));
-    for (const n of neighbors(cur)) {
-      const nk = keyOf(n);
-      if (dist.has(nk)) continue;
-      if (isBlocked(n)) continue;
-      dist.set(nk, curD + 1);
-      q.push(n);
-    }
-  }
-  return dist;
-}
-
-function canCatReachAnyEdge() {
-  if (isEdge(state.cat)) return true;
-  const dist = bfsDistancesFrom(state.cat);
-  for (const h of allHexes()) {
-    if (!isEdge(h)) continue;
-    if (isBlocked(h)) continue;
-    if (dist.has(keyOf(h))) return true;
-  }
-  return false;
-}
-
 function computeCatStep() {
-  // If already on edge: escaped.
   if (isEdge(state.cat)) return { type: "escaped" };
 
   const moves = legalCatMoves();
   if (moves.length === 0) return { type: "trapped" };
 
-  // Find nearest edge via BFS from cat.
-  const dist = bfsDistancesFrom(state.cat);
-  let bestEdge = null;
-  let bestD = Infinity;
+  // Single optimized BFS from cat
+  const frontier = [state.cat];
+  const cameFrom = new Map();
+  cameFrom.set(keyOf(state.cat), null);
+  const dist = new Map();
+  dist.set(keyOf(state.cat), 0);
 
-  for (const h of allHexes()) {
-    if (!isEdge(h)) continue;
-    if (isBlocked(h)) continue;
-    const d = dist.get(keyOf(h));
-    if (d == null) continue;
-    if (d < bestD) {
-      bestD = d;
-      bestEdge = h;
-    } else if (d === bestD && bestEdge) {
-      // tie-break: closer (as-the-crow-flies) to center line
-      const a = Math.abs(h.q) + Math.abs(h.r);
-      const b = Math.abs(bestEdge.q) + Math.abs(bestEdge.r);
-      if (a > b) bestEdge = h;
+  let minEdgeDist = Infinity;
+  const bestEdges = [];
+
+  let head = 0;
+  while (head < frontier.length) {
+    const current = frontier[head++];
+    const d = dist.get(keyOf(current));
+
+    if (d > minEdgeDist) break; // Found all shortest paths to edges
+
+    if (isEdge(current)) {
+      minEdgeDist = d;
+      bestEdges.push(current);
+      continue; // Stop expanding from this edge
     }
-  }
 
-  if (!bestEdge) {
-    // No edge reachable. Still move to maximize freedom (degree), then maximize distance to nearest blocked? (simple)
-    let best = moves[0];
-    let bestScore = -Infinity;
-    for (const m of moves) {
-      const deg = neighbors(m).filter((n) => !isBlocked(n)).length;
-      const score = deg * 10 - hexDistance(m, { q: 0, r: 0 }) * 0.1;
-      if (score > bestScore) {
-        bestScore = score;
-        best = m;
+    for (const next of neighbors(current)) {
+      if (isBlocked(next)) continue;
+      const nk = keyOf(next);
+      if (!cameFrom.has(nk)) {
+        cameFrom.set(nk, current);
+        dist.set(nk, d + 1);
+        frontier.push(next);
       }
     }
-    return { type: "move", to: best };
   }
 
-  // Choose neighbor that reduces distance to the chosen best edge (using BFS distances from edge).
-  const distFromEdge = bfsDistancesFrom(bestEdge);
-  let bestMove = null;
-  let bestMoveD = Infinity;
-  for (const m of moves) {
-    const d = distFromEdge.get(keyOf(m));
-    if (d == null) continue;
-    if (d < bestMoveD) {
-      bestMoveD = d;
-      bestMove = m;
-    } else if (d === bestMoveD && bestMove) {
-      // tie-break: prefer continuing direction (keep cat feeling "smart")
-      const a = hexDistance(m, bestEdge);
-      const b = hexDistance(bestMove, bestEdge);
-      if (a < b) bestMove = m;
+  if (bestEdges.length === 0) {
+    return { type: "trapped_in" }; // Has moves, but no path to edge
+  }
+
+  // Tie-breaker: prefer edges further toward the pointy ends of the board
+  let bestEdge = bestEdges[0];
+  let bestScore = Math.abs(bestEdge.q) + Math.abs(bestEdge.r);
+  for (let i = 1; i < bestEdges.length; i++) {
+    const e = bestEdges[i];
+    const score = Math.abs(e.q) + Math.abs(e.r);
+    if (score > bestScore) {
+      bestScore = score;
+      bestEdge = e;
     }
   }
 
-  if (!bestMove) {
-    // Shouldn't happen, but keep it safe.
-    return { type: "move", to: moves[0] };
+  // Backtrack from bestEdge to find the first step
+  let step = bestEdge;
+  let parent = cameFrom.get(keyOf(step));
+  while (parent && !eq(parent, state.cat)) {
+    step = parent;
+    parent = cameFrom.get(keyOf(step));
   }
 
-  return { type: "move", to: bestMove };
+  return { type: "move", to: step };
 }
 
 function endGame(reason) {
@@ -664,22 +645,21 @@ function endGame(reason) {
 }
 
 function catTurn() {
-  // New win rule: if cat cannot reach the edge anymore, it is "trapped in".
-  if (!canCatReachAnyEdge()) {
-    endGame("Cat is trapped in. You win!");
-    return;
-  }
-
   const step = computeCatStep();
+
   if (step.type === "escaped") {
     endGame("Cat escaped. You lose.");
     return;
   }
   if (step.type === "trapped") {
-    // Still a win (stronger than being enclosed): no legal moves.
     endGame("Cat is trapped. You win!");
     return;
   }
+  if (step.type === "trapped_in") {
+    endGame("Cat is trapped in. You win!");
+    return;
+  }
+
   if (step.type === "move") {
     const dest = step.to;
     startCatJump(dest, () => {
@@ -689,12 +669,14 @@ function catTurn() {
         return;
       }
 
-      // After moving, immediately check the "trapped in" condition again.
-      if (!state.over && !canCatReachAnyEdge()) {
+      // Check if the cat became trapped as a result of its own move
+      const nextStep = computeCatStep();
+      if (!state.over && nextStep.type === "trapped_in") {
         endGame("Cat is trapped in. You win!");
+      } else if (!state.over && nextStep.type === "trapped") {
+        endGame("Cat is trapped. You win!");
       }
     });
-    return; // rest will run after animation ends
   }
 }
 
