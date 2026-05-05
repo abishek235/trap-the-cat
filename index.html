@@ -6,6 +6,10 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
     />
+    <meta name="theme-color" content="#0b1020" id="themeColorMeta" />
+    <link rel="manifest" href="./manifest.json" />
+    <link rel="apple-touch-icon" href="./icon.svg" />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐱</text></svg>">
     <title>Trap the Cat (Hex)</title>
     <link rel="stylesheet" href="./style.css" />
   </head>
@@ -21,13 +25,28 @@
             <button id="settingsBtn" class="settings__btn" type="button" aria-label="Settings" aria-expanded="false" aria-controls="settingsDropdown">⚙</button>
             <div id="settingsDropdown" class="settings__dropdown">
               <label class="settings__option">
-                <input type="radio" name="theme" value="dark" checked>
-                <span class="settings__label">Dark</span>
+                <span class="settings__label">Bright Mode</span>
+                <div class="toggle">
+                  <input type="checkbox" id="themeToggle" />
+                  <span class="toggle__slider"></span>
+                </div>
               </label>
-              <label class="settings__option">
-                <input type="radio" name="theme" value="bright">
-                <span class="settings__label">Bright</span>
-              </label>
+              <hr class="settings__divider">
+              <div class="settings__option settings__option--audio" id="sfxOption">
+                <button class="settings__icon-btn" id="sfxMuteBtn" type="button" aria-label="Toggle SFX Mute">
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12,4L8,9H4V15H8L12,20V4Z"/></svg>
+                </button>
+                <span class="settings__label">SFX Vol</span>
+                <input type="range" id="sfxVolumeSlider" min="0" max="1" step="0.01" value="0.5" />
+              </div>
+              <hr class="settings__divider">
+              <div class="settings__option settings__option--audio" id="bgmOption">
+                <button class="settings__icon-btn" id="bgmMuteBtn" type="button" aria-label="Toggle BGM Mute">
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M21,3V15.5A3.5,3.5 0 0,1 17.5,19A3.5,3.5 0 0,1 14,15.5A3.5,3.5 0 0,1 17.5,12C18.04,12 18.55,12.12 19,12.34V6.47L9,8.6V17.5A3.5,3.5 0 0,1 5.5,21A3.5,3.5 0 0,1 2,17.5A3.5,3.5 0 0,1 5.5,14C6.04,14 6.55,14.12 7,14.34V6L21,3Z"/></svg>
+                </button>
+                <span class="settings__label">BGM Vol</span>
+                <input type="range" id="bgmVolumeSlider" min="0" max="1" step="0.01" value="0.3" />
+              </div>
             </div>
           </div>
           <button id="resetBtn" class="btn" type="button">Reset</button>
@@ -37,7 +56,20 @@
       <main class="main">
         <div class="boardWrap">
           <canvas id="board" class="board" aria-label="Hex board"></canvas>
-          <div id="toast" class="toast" aria-live="polite"></div>
+          <div id="startScreen" class="start-screen">
+            <h2 class="start-screen__title">How to Play</h2>
+            <ul class="start-screen__rules">
+              <li>Block exactly <strong>one</strong> tile per turn.</li>
+              <li>The cat moves 1 step toward the nearest edge.</li>
+              <li>Win if the cat has <strong>no legal moves</strong>.</li>
+              <li>Lose if the cat reaches the <strong>edge</strong>.</li>
+            </ul>
+            <button id="playBtn" class="btn start-screen__btn" type="button">Play</button>
+          </div>
+          <div id="toast" class="toast" aria-live="polite">
+            <div id="toastMessage"></div>
+            <button id="toastPlayAgainBtn" class="btn toast__btn" type="button">Play Again</button>
+          </div>
         </div>
 
         <section class="panel">
@@ -53,6 +85,10 @@
             <div class="stat">
               <div class="stat__label">Turns</div>
               <div class="stat__value"><span id="turnInfo">—</span></div>
+            </div>
+            <div class="stat">
+              <div class="stat__label">Best</div>
+              <div class="stat__value"><span id="bestInfo">—</span></div>
             </div>
           </div>
 

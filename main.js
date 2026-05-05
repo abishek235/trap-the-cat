@@ -1,21 +1,39 @@
 // Dependency-free browser game: Trap the Cat on a hex grid.
 
-const VERSION = "0.1.4";
+const VERSION = "1.0.0";
 
 const canvas = document.getElementById("board");
 const ctx = canvas.getContext("2d", { alpha: false });
 const resetBtn = document.getElementById("resetBtn");
 const settingsBtn = document.getElementById("settingsBtn");
 const settingsDropdown = document.getElementById("settingsDropdown");
+const sfxOption = document.getElementById("sfxOption");
+const sfxMuteBtn = document.getElementById("sfxMuteBtn");
+const sfxVolumeSlider = document.getElementById("sfxVolumeSlider");
+const bgmOption = document.getElementById("bgmOption");
+const bgmMuteBtn = document.getElementById("bgmMuteBtn");
+const bgmVolumeSlider = document.getElementById("bgmVolumeSlider");
 const toastEl = document.getElementById("toast");
+const toastMessageEl = document.getElementById("toastMessage");
+const toastPlayAgainBtn = document.getElementById("toastPlayAgainBtn");
 
 const boardInfoEl = document.getElementById("boardInfo");
 const blockedInfoEl = document.getElementById("blockedInfo");
 const turnInfoEl = document.getElementById("turnInfo");
+const bestInfoEl = document.getElementById("bestInfo");
 const versionTextEl = document.getElementById("versionText");
+const startScreen = document.getElementById("startScreen");
+const playBtn = document.getElementById("playBtn");
 
 // Theme handling
-const themeRadios = document.querySelectorAll('input[name="theme"]');
+const themeToggle = document.getElementById("themeToggle");
+const themeColorMeta = document.getElementById("themeColorMeta");
+
+let renderReqId = null;
+function scheduleRender() {
+  if (renderReqId) cancelAnimationFrame(renderReqId);
+  renderReqId = requestAnimationFrame(render);
+}
 
 // Canvas colors based on theme
 const canvasColors = {
@@ -57,8 +75,10 @@ function getCanvasColors() {
 function setTheme(theme) {
   if (theme === "bright") {
     document.documentElement.setAttribute("data-theme", "bright");
+    if (themeColorMeta) themeColorMeta.setAttribute("content", "#fdfbf7");
   } else {
     document.documentElement.removeAttribute("data-theme");
+    if (themeColorMeta) themeColorMeta.setAttribute("content", "#0b1020");
   }
   try {
     localStorage.setItem("theme", theme);
@@ -66,7 +86,7 @@ function setTheme(theme) {
     console.warn("Could not save theme to localStorage", err);
   }
   // Re-render canvas with new colors
-  requestAnimationFrame(() => render());
+  scheduleRender();
 }
 
 // Load saved theme
@@ -78,9 +98,9 @@ try {
 }
 if (savedTheme) {
   setTheme(savedTheme);
-  themeRadios.forEach((radio) => {
-    radio.checked = radio.value === savedTheme;
-  });
+}
+if (themeToggle) {
+  themeToggle.checked = savedTheme === "bright";
 }
 
 // Settings dropdown toggle
@@ -100,14 +120,21 @@ settingsDropdown.addEventListener("click", (e) => {
   e.stopPropagation();
 });
 
-// Theme radio change handler
-themeRadios.forEach((radio) => {
-  radio.addEventListener("change", (e) => {
-    setTheme(e.target.value);
-    settingsDropdown.classList.remove("show");
-    settingsBtn.setAttribute("aria-expanded", "false");
+// Theme toggle change handler
+if (themeToggle) {
+  themeToggle.addEventListener("change", (e) => {
+    setTheme(e.target.checked ? "bright" : "dark");
   });
-});
+}
+
+if (playBtn) {
+  playBtn.addEventListener("click", () => {
+    startScreen.classList.add("hidden");
+    state.isPlaying = true;
+    // It's a great time to initialize the background music inside a direct user click event!
+    startBGM(); 
+  });
+}
 
 /** @typedef {{q:number, r:number}} Hex */
 
@@ -121,12 +148,18 @@ const DIRS = [
 ];
 
 const state = {
+  isPlaying: false,
+  sfxMuted: false,
+  sfxVolume: 0.5,
+  bgmMuted: false,
+  bgmVolume: 0.3,
   radius: 6, // total width is 2*radius+1 in "axial" rows
   blocked: new Set(), // key "q,r"
   cat: { q: 0, r: 0 },
   catAnim: null, // {from:{x,y}, to:{x,y}, startMs:number, durationMs:number}
   zoom: 1, // user-controlled zoom (pinch)
   turns: 0,
+  bestTurns: null,
   over: false,
   overReason: "",
   pixelRatio: 1,
@@ -140,7 +173,6 @@ const state = {
     startDist: 0,
     startZoom: 1,
     startCenter: { x: 0, y: 0 },
-    panning: false,
   },
   camera: {
     offsetX: 0,
@@ -155,7 +187,119 @@ const state = {
     lastY: 0,
     startMs: 0,
   },
+  particles: [],
 };
+
+const sounds = {
+  block: new Audio("assets/block.mp3"),
+  jump: new Audio("assets/jump.mp3"),
+  win: new Audio("assets/win.mp3"),
+  lose: new Audio("assets/lose.mp3"),
+};
+
+const bgm = new Audio("assets/bgm.mp3");
+bgm.loop = true;
+bgm.volume = state.bgmVolume;
+bgm.muted = state.bgmMuted;
+
+let bgmStarted = false;
+function startBGM() {
+  if (bgmStarted) return;
+  bgmStarted = true;
+  bgm.play().catch((err) => {
+    console.warn("Could not play BGM:", err);
+    bgmStarted = false; // Reset so subsequent interactions can try again
+  });
+}
+
+// Start background music on the user's first interaction
+document.addEventListener("click", startBGM, { once: true });
+document.addEventListener("touchstart", startBGM, { once: true, passive: true });
+
+// Load saved audio state
+try {
+  const savedSfxMuted = localStorage.getItem("sfxMuted");
+  if (savedSfxMuted !== null) state.sfxMuted = savedSfxMuted === "true";
+
+  const savedSfxVol = localStorage.getItem("sfxVolume");
+  if (savedSfxVol !== null) state.sfxVolume = parseFloat(savedSfxVol);
+
+  const savedBgmMuted = localStorage.getItem("bgmMuted");
+  if (savedBgmMuted !== null) state.bgmMuted = savedBgmMuted === "true";
+
+  const savedBgmVol = localStorage.getItem("bgmVolume");
+  if (savedBgmVol !== null) state.bgmVolume = parseFloat(savedBgmVol);
+
+  const savedBest = localStorage.getItem("bestTurns");
+  if (savedBest !== null) state.bestTurns = parseInt(savedBest, 10);
+} catch (err) {
+  console.warn("Could not read audio state from localStorage", err);
+}
+
+function updateAudioUI() {
+  if (sfxOption) sfxOption.classList.toggle("muted", state.sfxMuted);
+  if (bgmOption) bgmOption.classList.toggle("muted", state.bgmMuted);
+}
+
+// Sync UI and audio elements with loaded state
+if (sfxVolumeSlider) sfxVolumeSlider.value = state.sfxVolume;
+if (bgmVolumeSlider) bgmVolumeSlider.value = state.bgmVolume;
+updateAudioUI();
+
+bgm.muted = state.bgmMuted;
+bgm.volume = state.bgmVolume;
+
+// Audio event listeners
+if (sfxMuteBtn) {
+  sfxMuteBtn.addEventListener("click", () => {
+    state.sfxMuted = !state.sfxMuted;
+    try { localStorage.setItem("sfxMuted", state.sfxMuted); } catch (err) {}
+    updateAudioUI();
+  });
+}
+if (sfxVolumeSlider) {
+  sfxVolumeSlider.addEventListener("input", (e) => {
+    state.sfxVolume = parseFloat(e.target.value);
+    if (state.sfxMuted && state.sfxVolume > 0) {
+      state.sfxMuted = false;
+      try { localStorage.setItem("sfxMuted", false); } catch (err) {}
+      updateAudioUI();
+    }
+    try { localStorage.setItem("sfxVolume", state.sfxVolume); } catch (err) {}
+  });
+}
+if (bgmMuteBtn) {
+  bgmMuteBtn.addEventListener("click", () => {
+    state.bgmMuted = !state.bgmMuted;
+    bgm.muted = state.bgmMuted;
+    try { localStorage.setItem("bgmMuted", state.bgmMuted); } catch (err) {}
+    updateAudioUI();
+  });
+}
+if (bgmVolumeSlider) {
+  bgmVolumeSlider.addEventListener("input", (e) => {
+    state.bgmVolume = parseFloat(e.target.value);
+    bgm.volume = state.bgmVolume;
+    if (state.bgmMuted && state.bgmVolume > 0) {
+      state.bgmMuted = false;
+      bgm.muted = false;
+      try { localStorage.setItem("bgmMuted", false); } catch (err) {}
+      updateAudioUI();
+    }
+    try { localStorage.setItem("bgmVolume", state.bgmVolume); } catch (err) {}
+  });
+}
+
+function playSound(name) {
+  if (state.sfxMuted) return;
+  if (!sounds[name]) return;
+  const clone = sounds[name].cloneNode();
+  clone.volume = state.sfxVolume;
+  clone.play().catch((err) => {
+    // Silently ignore if the browser blocks audio before first user interaction
+    console.warn("Could not play sound:", err);
+  });
+}
 
 function clamp01(t) {
   return Math.max(0, Math.min(1, t));
@@ -184,14 +328,6 @@ function eq(a, b) {
 
 function add(a, b) {
   return { q: a.q + b.q, r: a.r + b.r };
-}
-
-function hexDistance(a, b) {
-  // axial distance
-  const dq = a.q - b.q;
-  const dr = a.r - b.r;
-  const ds = (a.q + a.r) - (b.q + b.r);
-  return (Math.abs(dq) + Math.abs(dr) + Math.abs(ds)) / 2;
 }
 
 function isInside(h) {
@@ -228,10 +364,6 @@ function allHexes() {
 
 function isBlocked(h) {
   return state.blocked.has(keyOf(h));
-}
-
-function isWalkable(h) {
-  return isInside(h) && !isBlocked(h) && !eq(h, state.cat);
 }
 
 function resizeCanvasToDisplaySize() {
@@ -449,11 +581,11 @@ function drawCat(x, y, size, jumpT) {
 
 function clearToast() {
   toastEl.className = "toast";
-  toastEl.textContent = "";
+  if (toastMessageEl) toastMessageEl.textContent = "";
 }
 
 function showToast(msg, variant) {
-  toastEl.textContent = msg;
+  if (toastMessageEl) toastMessageEl.textContent = msg;
   toastEl.className = `toast toast--show ${variant ? `toast--${variant}` : ""}`.trim();
 }
 
@@ -463,6 +595,7 @@ function updateStats() {
   boardInfoEl.textContent = `radius ${state.radius} • ${total} tiles`;
   blockedInfoEl.textContent = `${blocked}`;
   turnInfoEl.textContent = `${state.turns}`;
+  if (bestInfoEl) bestInfoEl.textContent = state.bestTurns !== null ? state.bestTurns : "—";
 }
 
 function render() {
@@ -501,6 +634,7 @@ function render() {
   let catX;
   let catY;
   let jumpT = 0;
+  let jumpHeight = 0.25;
   if (state.catAnim) {
     const now = performance.now();
     const t = clamp01((now - state.catAnim.startMs) / state.catAnim.durationMs);
@@ -508,13 +642,43 @@ function render() {
     catX = mix(state.catAnim.from.x, state.catAnim.to.x, e);
     catY = mix(state.catAnim.from.y, state.catAnim.to.y, e);
     jumpT = t;
+    if (state.catAnim.jumpHeight) jumpHeight = state.catAnim.jumpHeight;
   } else {
     const catP = hexToPixel(state.cat);
     catX = catP.x;
     catY = catP.y;
   }
 
-  drawCat(catX, catY, size, jumpT);
+  drawCat(catX, catY, size, jumpT, jumpHeight);
+
+  // Particles
+  let particlesAlive = false;
+  if (state.particles && state.particles.length > 0) {
+    particlesAlive = true;
+    for (let i = state.particles.length - 1; i >= 0; i--) {
+      let p = state.particles[i];
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += 0.15 * state.pixelRatio; // Gravity
+      p.vx *= 0.99; // Friction
+      p.vy *= 0.99;
+      p.angle += p.rotSpeed;
+      p.life -= p.decay;
+
+      if (p.life <= 0) {
+        state.particles.splice(i, 1);
+        continue;
+      }
+
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.angle);
+      ctx.fillStyle = p.color;
+      ctx.globalAlpha = Math.min(1, Math.max(0, p.life));
+      ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+      ctx.restore();
+    }
+  }
 
   // end state toast
   if (state.over) {
@@ -530,14 +694,17 @@ function render() {
       const onDone = state.catAnim.onDone;
       state.catAnim = null;
       if (typeof onDone === "function") onDone();
-      requestAnimationFrame(() => render());
+      scheduleRender();
       return;
     }
-    requestAnimationFrame(() => render());
+    scheduleRender();
+  } else if (particlesAlive) {
+    scheduleRender();
   }
 }
 
 function startCatJump(toHex, onDone) {
+  playSound("jump");
   const fromP = hexToPixel(state.cat);
   const toP = hexToPixel(toHex);
   state.catAnim = {
@@ -547,7 +714,7 @@ function startCatJump(toHex, onDone) {
     durationMs: 180,
     onDone,
   };
-  requestAnimationFrame(() => render());
+  scheduleRender();
 }
 
 function pickInitialBlocked() {
@@ -638,7 +805,65 @@ function computeCatStep() {
   return { type: "move", to: step };
 }
 
+function spawnConfetti() {
+  const catP = hexToPixel(state.cat);
+  const colors = ['#f4a261', '#e76f51', '#2a9d8f', '#e9c46a', '#7c5cff', '#ff4d6d', '#29d17d'];
+  for (let i = 0; i < 250; i++) {
+    state.particles.push({
+      x: catP.x,
+      y: catP.y - 20 * state.pixelRatio,
+      vx: (Math.random() - 0.5) * 18 * state.pixelRatio,
+      vy: (Math.random() - 1) * 15 * state.pixelRatio - 3 * state.pixelRatio,
+      size: (Math.random() * 8 + 4) * state.pixelRatio,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      life: 2 + Math.random(),
+      decay: Math.random() * 0.01 + 0.005,
+      angle: Math.random() * Math.PI * 2,
+      rotSpeed: (Math.random() - 0.5) * 0.5
+    });
+  }
+}
+
+function tauntJump() {
+  if (!state.over || !state.overReason.includes("lose")) return;
+  const emptyHexes = allHexes().filter(h => !isBlocked(h) && !eq(h, state.cat));
+  if (emptyHexes.length === 0) return;
+
+  const dest = emptyHexes[Math.floor(Math.random() * emptyHexes.length)];
+  playSound("jump");
+  const fromP = hexToPixel(state.cat);
+  const toP = hexToPixel(dest);
+
+  const dist = Math.hypot(toP.x - fromP.x, toP.y - fromP.y);
+  const durationMs = Math.max(250, Math.min(600, dist * 1.2));
+  const heightMult = Math.max(0.25, dist / state.layout.size * 0.15); // Higher jump for long distance
+
+  state.catAnim = {
+    from: { x: fromP.x, y: fromP.y },
+    to: { x: toP.x, y: toP.y },
+    startMs: performance.now(),
+    durationMs: durationMs,
+    jumpHeight: heightMult,
+    onDone: () => {
+      state.cat = dest;
+      setTimeout(tauntJump, 150);
+    },
+  };
+  scheduleRender();
+}
+
 function endGame(reason) {
+  if (reason.includes("win")) {
+    playSound("win");
+    spawnConfetti();
+    if (state.bestTurns === null || state.turns < state.bestTurns) {
+      state.bestTurns = state.turns;
+      try { localStorage.setItem("bestTurns", state.bestTurns); } catch (err) {}
+    }
+  } else if (reason.includes("lose")) {
+    playSound("lose");
+    setTimeout(tauntJump, 600);
+  }
   state.over = true;
   state.overReason = reason;
   render();
@@ -681,12 +906,14 @@ function catTurn() {
 }
 
 function playerBlock(h) {
+  if (!state.isPlaying) return;
   if (!isInside(h)) return;
   if (state.over) return;
   if (state.catAnim) return;
   if (eq(h, state.cat)) return;
   if (isBlocked(h)) return;
 
+  playSound("block");
   state.blocked.add(keyOf(h));
   state.turns++;
 
@@ -701,6 +928,7 @@ function resetGame() {
   state.turns = 0;
   state.cat = { q: 0, r: 0 };
   state.catAnim = null;
+  state.particles = [];
   pickInitialBlocked();
 
   // if cat is already trapped, re-roll a few times
@@ -764,12 +992,15 @@ function onPointer(evt) {
 
 resetBtn.addEventListener("click", () => resetGame());
 
+if (toastPlayAgainBtn) {
+  toastPlayAgainBtn.addEventListener("click", () => resetGame());
+}
+
 canvas.addEventListener("click", onPointer, { passive: false });
 
 function endPinch() {
   state.gesture.pinching = false;
   state.gesture.startDist = 0;
-  state.gesture.panning = false;
 }
 
 canvas.addEventListener(
@@ -780,7 +1011,6 @@ canvas.addEventListener(
       evt.preventDefault();
       state.tap.active = false;
       state.gesture.pinching = true;
-      state.gesture.panning = true;
       state.gesture.startDist = touchDistance(evt);
       state.gesture.startZoom = state.zoom;
       state.gesture.startCenter = touchCenter(evt);
@@ -873,7 +1103,7 @@ canvas.addEventListener(
   { passive: true },
 );
 
-window.addEventListener("resize", () => render());
+window.addEventListener("resize", scheduleRender);
 
 if (versionTextEl) versionTextEl.textContent = `v${VERSION}`;
 resetGame();
