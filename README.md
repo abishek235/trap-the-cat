@@ -1,5 +1,7 @@
 # Trap the Cat (Hex) 🐱
 
+![Trap the Cat Logo](./assets/trap-the-cat-logo.png)
+
 A lightweight, dependency-free browser game built with HTML5 Canvas and vanilla JavaScript. Your goal is to trap the cat on a hexagonal grid before it escapes to the edge!
 
 ## 🎮 Play Online
@@ -20,12 +22,12 @@ Play the game directly in your browser: **[Play Trap the Cat](https://abishek235
 
 - **Hexagonal Grid:** Fully responsive and scalable board.
 - **Pathfinding AI:** The cat uses Breadth-First Search (BFS) to find the shortest path to freedom.
-- **Touch & Mouse Support:** Includes pinch-to-zoom and two-finger panning for mobile devices.
+- **Touch & Mouse Support:** Includes pinch-to-zoom, two-finger panning, and a quick **Reset View** button.
 - **Themes:** Toggle between beautifully crafted Dark and Bright modes.
-- **Audio Controls:** Independent volume sliders and mute toggles for Background Music (BGM) and Sound Effects (SFX).
+- **Audio Controls:** Independent volume controls and mute toggles for BGM and SFX (gracefully adapts on iOS).
 - **Animations & Effects:** Enjoy a rewarding confetti explosion when you win, and watch the cat taunt you when you lose!
 - **High Scores:** Automatically saves your best score (fewest turns) to your browser's local storage.
-- **Progressive Web App (PWA):** Installable on iOS, Android, and Desktop via "Add to Home Screen" for a full-screen, native app experience.
+- **Progressive Web App (PWA):** Installable on your devices with **full offline support** via Service Workers for a native app experience.
 
 ## 🚀 Run Locally
 
@@ -40,11 +42,6 @@ python3 -m http.server 5173
 
 Then open:
 - `http://localhost:5173`
-
-## Play
-- Tap/click a hex tile to **block** it.
-- You **win** if the cat is **trapped in** (can’t reach any edge anymore), even if empty spaces remain inside.
-- You **lose** if the cat reaches the **edge**.
 
 ## Files
 - `index.html`: UI shell

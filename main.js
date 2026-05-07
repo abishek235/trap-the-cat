@@ -16,6 +16,10 @@ const bgmVolumeSlider = document.getElementById("bgmVolumeSlider");
 const toastEl = document.getElementById("toast");
 const toastMessageEl = document.getElementById("toastMessage");
 const toastPlayAgainBtn = document.getElementById("toastPlayAgainBtn");
+const updateToastEl = document.getElementById("updateToast");
+const updateBtn = document.getElementById("updateBtn");
+const installBtn = document.getElementById("installBtn");
+const reloadAppBtn = document.getElementById("reloadAppBtn");
 
 const boardInfoEl = document.getElementById("boardInfo");
 const blockedInfoEl = document.getElementById("blockedInfo");
@@ -24,6 +28,7 @@ const bestInfoEl = document.getElementById("bestInfo");
 const versionTextEl = document.getElementById("versionText");
 const startScreen = document.getElementById("startScreen");
 const playBtn = document.getElementById("playBtn");
+const resetViewBtn = document.getElementById("resetViewBtn");
 
 // Theme handling
 const themeToggle = document.getElementById("themeToggle");
@@ -33,6 +38,20 @@ let renderReqId = null;
 function scheduleRender() {
   if (renderReqId) cancelAnimationFrame(renderReqId);
   renderReqId = requestAnimationFrame(render);
+}
+
+// Detect iOS to handle Apple's HTML5 Audio volume restrictions
+const isIOS = typeof navigator !== "undefined" && 
+  (/iPad|iPhone|iPod/.test(navigator.userAgent) || 
+  (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1));
+
+if (isIOS) {
+  document.documentElement.classList.add("ios-device");
+  // Rename labels since sliders will be hidden
+  const sfxLabel = document.getElementById("sfxLabel");
+  const bgmLabel = document.getElementById("bgmLabel");
+  if (sfxLabel) sfxLabel.textContent = "SFX";
+  if (bgmLabel) bgmLabel.textContent = "BGM";
 }
 
 // Canvas colors based on theme
@@ -133,6 +152,20 @@ if (playBtn) {
     state.isPlaying = true;
     // It's a great time to initialize the background music inside a direct user click event!
     startBGM(); 
+  });
+}
+
+function resetCamera() {
+  state.zoom = 1;
+  state.camera.offsetX = 0;
+  state.camera.offsetY = 0;
+  scheduleRender();
+}
+
+if (resetViewBtn) {
+  resetViewBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    resetCamera();
   });
 }
 
@@ -253,7 +286,7 @@ bgm.volume = state.bgmVolume;
 if (sfxMuteBtn) {
   sfxMuteBtn.addEventListener("click", () => {
     state.sfxMuted = !state.sfxMuted;
-    try { localStorage.setItem("sfxMuted", state.sfxMuted); } catch (err) {}
+    try { localStorage.setItem("sfxMuted", state.sfxMuted); } catch {}
     updateAudioUI();
   });
 }
@@ -262,17 +295,17 @@ if (sfxVolumeSlider) {
     state.sfxVolume = parseFloat(e.target.value);
     if (state.sfxMuted && state.sfxVolume > 0) {
       state.sfxMuted = false;
-      try { localStorage.setItem("sfxMuted", false); } catch (err) {}
+      try { localStorage.setItem("sfxMuted", false); } catch {}
       updateAudioUI();
     }
-    try { localStorage.setItem("sfxVolume", state.sfxVolume); } catch (err) {}
+    try { localStorage.setItem("sfxVolume", state.sfxVolume); } catch {}
   });
 }
 if (bgmMuteBtn) {
   bgmMuteBtn.addEventListener("click", () => {
     state.bgmMuted = !state.bgmMuted;
     bgm.muted = state.bgmMuted;
-    try { localStorage.setItem("bgmMuted", state.bgmMuted); } catch (err) {}
+    try { localStorage.setItem("bgmMuted", state.bgmMuted); } catch {}
     updateAudioUI();
   });
 }
@@ -283,10 +316,10 @@ if (bgmVolumeSlider) {
     if (state.bgmMuted && state.bgmVolume > 0) {
       state.bgmMuted = false;
       bgm.muted = false;
-      try { localStorage.setItem("bgmMuted", false); } catch (err) {}
+      try { localStorage.setItem("bgmMuted", false); } catch {}
       updateAudioUI();
     }
-    try { localStorage.setItem("bgmVolume", state.bgmVolume); } catch (err) {}
+    try { localStorage.setItem("bgmVolume", state.bgmVolume); } catch {}
   });
 }
 
@@ -687,6 +720,14 @@ function render() {
 
   updateStats();
 
+  if (resetViewBtn) {
+    if (Math.abs(state.zoom - 1) > 0.01 || Math.abs(state.camera.offsetX) > 1 || Math.abs(state.camera.offsetY) > 1) {
+      resetViewBtn.classList.remove("hidden");
+    } else {
+      resetViewBtn.classList.add("hidden");
+    }
+  }
+
   if (state.catAnim) {
     const now = performance.now();
     const done = now - state.catAnim.startMs >= state.catAnim.durationMs;
@@ -858,7 +899,7 @@ function endGame(reason) {
     spawnConfetti();
     if (state.bestTurns === null || state.turns < state.bestTurns) {
       state.bestTurns = state.turns;
-      try { localStorage.setItem("bestTurns", state.bestTurns); } catch (err) {}
+      try { localStorage.setItem("bestTurns", state.bestTurns); } catch {}
     }
   } else if (reason.includes("lose")) {
     playSound("lose");
@@ -929,6 +970,7 @@ function resetGame() {
   state.cat = { q: 0, r: 0 };
   state.catAnim = null;
   state.particles = [];
+  resetCamera();
   pickInitialBlocked();
 
   // if cat is already trapped, re-roll a few times
@@ -994,6 +1036,18 @@ resetBtn.addEventListener("click", () => resetGame());
 
 if (toastPlayAgainBtn) {
   toastPlayAgainBtn.addEventListener("click", () => resetGame());
+}
+
+if (updateBtn) {
+  updateBtn.addEventListener("click", () => {
+    window.location.reload();
+  });
+}
+
+if (reloadAppBtn) {
+  reloadAppBtn.addEventListener("click", () => {
+    window.location.reload();
+  });
 }
 
 canvas.addEventListener("click", onPointer, { passive: false });
@@ -1107,3 +1161,57 @@ window.addEventListener("resize", scheduleRender);
 
 if (versionTextEl) versionTextEl.textContent = `v${VERSION}`;
 resetGame();
+
+// Register Service Worker for offline PWA support
+if ("serviceWorker" in navigator && window.location.protocol !== "file:") {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js").then((reg) => {
+      // Listen for new service worker installations
+      reg.addEventListener("updatefound", () => {
+        const newWorker = reg.installing;
+        if (newWorker) {
+          newWorker.addEventListener("statechange", () => {
+            // If there's an existing controller, this is an update to an existing installation
+            if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
+              if (updateToastEl) updateToastEl.classList.add("toast--show");
+            }
+          });
+        }
+      });
+    }).catch((err) => {
+      console.warn("Service Worker registration failed:", err);
+    });
+  });
+} else if (window.location.protocol === "file:") {
+  console.info("Service Worker caching requires a local web server. Please serve via http://localhost.");
+}
+
+// PWA Install Prompt handling
+let deferredPrompt;
+
+window.addEventListener("beforeinstallprompt", (e) => {
+  // Prevent the mini-infobar from appearing on mobile
+  e.preventDefault();
+  // Stash the event so it can be triggered later.
+  deferredPrompt = e;
+  // Update UI notify the user they can install the PWA
+  if (installBtn) installBtn.style.display = "inline-block";
+});
+
+if (installBtn) {
+  installBtn.addEventListener("click", async () => {
+    if (!deferredPrompt) return;
+    // Show the install prompt
+    deferredPrompt.prompt();
+    // Wait for the user to respond to the prompt
+    const { outcome } = await deferredPrompt.userChoice;
+    deferredPrompt = null;
+    installBtn.style.display = "none";
+  });
+}
+
+window.addEventListener("appinstalled", () => {
+  // Hide the app-provided install promotion if they installed it via browser menus instead of the button
+  if (installBtn) installBtn.style.display = "none";
+  deferredPrompt = null;
+});

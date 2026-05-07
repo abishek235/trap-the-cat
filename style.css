@@ -217,6 +217,12 @@ body {
   width: 80px;
   accent-color: var(--accent);
   cursor: pointer;
+  touch-action: none;
+}
+
+/* Hide the volume sliders on iOS because Apple restricts JS volume control */
+.ios-device input[type="range"] {
+  display: none;
 }
 
 .toggle {
@@ -312,6 +318,27 @@ body {
   height: min(74dvh, 680px);
   display: block;
   touch-action: none;
+}
+
+.reset-view-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition: opacity 0.3s ease, visibility 0.3s, background 0.2s, transform 0.1s;
+}
+
+.reset-view-btn.hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .start-screen {
@@ -426,6 +453,20 @@ body {
   background: var(--accent);
   color: #fff;
   border: none;
+}
+
+@keyframes attention-pulse {
+  0%, 100% {
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+  }
+  50% {
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25), 0 0 20px var(--accent);
+  }
+}
+
+#updateToast.toast--show {
+  animation: attention-pulse 2.5s infinite ease-in-out;
+  animation-delay: 0.3s; /* Wait for the entry transition to finish first */
 }
 
 [data-theme="bright"] .toast {

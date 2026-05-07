@@ -8,8 +8,8 @@
     />
     <meta name="theme-color" content="#0b1020" id="themeColorMeta" />
     <link rel="manifest" href="./manifest.json" />
-    <link rel="apple-touch-icon" href="./icon.svg" />
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐱</text></svg>">
+    <link rel="apple-touch-icon" href="./assets/trap-the-cat-logo.png" />
+    <link rel="icon" href="./assets/trap-the-cat-logo.png" type="image/png" />
     <title>Trap the Cat (Hex)</title>
     <link rel="stylesheet" href="./style.css" />
   </head>
@@ -21,6 +21,7 @@
           <div class="title__sub">Tap a tile to block it. Cat moves after you.</div>
         </div>
         <div class="controls">
+          <button id="installBtn" class="btn" type="button" style="display: none;">Install</button>
           <div class="settings">
             <button id="settingsBtn" class="settings__btn" type="button" aria-label="Settings" aria-expanded="false" aria-controls="settingsDropdown">⚙</button>
             <div id="settingsDropdown" class="settings__dropdown">
@@ -36,7 +37,7 @@
                 <button class="settings__icon-btn" id="sfxMuteBtn" type="button" aria-label="Toggle SFX Mute">
                   <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12,4L8,9H4V15H8L12,20V4Z"/></svg>
                 </button>
-                <span class="settings__label">SFX Vol</span>
+                <span class="settings__label" id="sfxLabel">SFX Vol</span>
                 <input type="range" id="sfxVolumeSlider" min="0" max="1" step="0.01" value="0.5" />
               </div>
               <hr class="settings__divider">
@@ -44,8 +45,13 @@
                 <button class="settings__icon-btn" id="bgmMuteBtn" type="button" aria-label="Toggle BGM Mute">
                   <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M21,3V15.5A3.5,3.5 0 0,1 17.5,19A3.5,3.5 0 0,1 14,15.5A3.5,3.5 0 0,1 17.5,12C18.04,12 18.55,12.12 19,12.34V6.47L9,8.6V17.5A3.5,3.5 0 0,1 5.5,21A3.5,3.5 0 0,1 2,17.5A3.5,3.5 0 0,1 5.5,14C6.04,14 6.55,14.12 7,14.34V6L21,3Z"/></svg>
                 </button>
-                <span class="settings__label">BGM Vol</span>
+                <span class="settings__label" id="bgmLabel">BGM Vol</span>
                 <input type="range" id="bgmVolumeSlider" min="0" max="1" step="0.01" value="0.3" />
+              </div>
+              <hr class="settings__divider">
+              <div class="settings__option" id="reloadAppBtn" role="button" tabindex="0">
+                <span class="settings__label">Reload App</span>
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M17.65,6.35C16.2,4.9 14.21,4 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20C15.73,20 18.84,17.45 19.73,14H17.65C16.83,16.33 14.61,18 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6C13.66,6 15.14,6.69 16.22,7.78L13,11H20V4L17.65,6.35Z"/></svg>
               </div>
             </div>
           </div>
@@ -56,6 +62,15 @@
       <main class="main">
         <div class="boardWrap">
           <canvas id="board" class="board" aria-label="Hex board"></canvas>
+          <button id="resetViewBtn" class="btn reset-view-btn hidden" type="button" aria-label="Reset View" title="Reset View">
+            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="3"></circle>
+              <line x1="12" y1="2" x2="12" y2="6"></line>
+              <line x1="12" y1="18" x2="12" y2="22"></line>
+              <line x1="4" y1="12" x2="2" y2="12"></line>
+              <line x1="22" y1="12" x2="20" y2="12"></line>
+            </svg>
+          </button>
           <div id="startScreen" class="start-screen">
             <h2 class="start-screen__title">How to Play</h2>
             <ul class="start-screen__rules">
@@ -69,6 +84,10 @@
           <div id="toast" class="toast" aria-live="polite">
             <div id="toastMessage"></div>
             <button id="toastPlayAgainBtn" class="btn toast__btn" type="button">Play Again</button>
+          </div>
+          <div id="updateToast" class="toast" aria-live="polite">
+            <div>Update available!</div>
+            <button id="updateBtn" class="btn toast__btn" type="button">Refresh</button>
           </div>
         </div>
 
