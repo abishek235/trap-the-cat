@@ -1,4 +1,4 @@
-const CACHE_NAME = "trap-cat-v1.0.3";
+const CACHE_NAME = "trap-cat-v1.0.4";
 const ASSETS_TO_CACHE = [
   "./",
   "./index.html",
@@ -17,7 +17,11 @@ self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       console.log("Service Worker: Caching new assets");
-      return cache.addAll(ASSETS_TO_CACHE).catch(err => {
+      // Bypass the browser's HTTP cache by creating new Request objects
+      // with the 'reload' cache mode. This ensures we fetch fresh assets
+      // from the network during the install phase.
+      const requests = ASSETS_TO_CACHE.map(url => new Request(url, { cache: 'reload' }));
+      return cache.addAll(requests).catch(err => {
         console.error("Service Worker: Failed to cache assets during install:", err);
       });
     })

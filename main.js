@@ -1,6 +1,6 @@
 // Dependency-free browser game: Trap the Cat on a hex grid.
 
-const VERSION = "1.0.3";
+const VERSION = "1.0.4";
 
 const canvas = document.getElementById("board");
 const ctx = canvas.getContext("2d", { alpha: false });
